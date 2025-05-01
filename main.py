@@ -2,7 +2,7 @@ import telebot
 from telebot import types
 import random
 
-TOKEN = '7507582678:AAEmU8r65GSXq3efU037r28VN4UQxvA2BhY'
+TOKEN = '7507582678:AAFh76hUUGKWQr82fPcSnTzTAFZ-bIFwRKo'
 bot = telebot.TeleBot(TOKEN)
 
 LOG_CHAT_ID = 7823280397
