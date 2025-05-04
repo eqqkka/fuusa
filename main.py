@@ -95,7 +95,7 @@ def check_and_award_top_user():
         weekday = now.weekday()
         hour = now.hour
 
-        if ((weekday < 5 and 8 <= hour < 20) or (weekday >= 5 and 11 <= hour < 20)):
+        if ((weekday < 5 and 9 <= hour < 20) or (weekday >= 5 and 11 <= hour < 20)):
             if now.minute == 0 and now.hour % 3 == 0:
                 if activity_counter:
                     top_user_id = max(activity_counter, key=activity_counter.get)
