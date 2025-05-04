@@ -8,7 +8,7 @@ import time
 import os
 
 TOKEN = os.getenv("BOT_TOKEN") or '7507582678:AAHIKLtx9-d3sqxAQP-RuytCvM8iG7yF0i8'
-PHOTO_REVIEW_GROUP_ID = -1002296054466  # ← замените на ID первой группы
+PHOTO_REVIEW_GROUP_ID = -1002498200426  # ← замените на ID первой группы
 ACTIVITY_GROUP_ID = -1002296054466      # ← ID второй группы (активность)
 LOG_CHAT_ID = 7823280397                 # ← лог-чат
 
@@ -18,11 +18,11 @@ GIF_URL = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjhxb2xoaDNsbHN3Y2Z
 
 # Призы и структура
 prizes = [
-    ('15 звезд', 40),
-    ('20 звезд', 25),
+    ('10 звезд', 40),
+    ('15 звезд', 25),
     ('25 звезд', 20),
-    ('30 звезд', 10),
-    ('50 звезд!', 5)
+    ('50 звезд', 10),
+    ('70 звезд!', 5)
 ]
 
 message_owners = {}         # кто отправил фото
