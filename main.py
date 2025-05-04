@@ -2,60 +2,60 @@ import telebot
 from telebot import types
 import random
 from datetime import datetime, timedelta
+import pytz
 import threading
 import time
-import pytz
 
 TOKEN = '7507582678:AAFh76hUUGKWQr82fPcSnTzTAFZ-bIFwRKo'
 bot = telebot.TeleBot(TOKEN)
 
-# Чаты
-PHOTO_REVIEW_CHAT_ID = -1002498200426  # Замените на чат для отзывов с фото
-ACTIVITY_CHAT_ID = -1002296054466      # Группа для активности
-LOG_CHAT_ID = 7823280397         # Лог-чат
+PHOTO_REVIEW_GROUP_ID = -1002498200426  # замените на ID вашей группы с отзывами
+ACTIVITY_GROUP_ID = -1002296054466
+LOG_CHAT_ID = 7823280397
 
-# Призы и вероятности
+GIF_URL = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjhxb2xoaDNsbHN3Y2ZwNXNzbHB0dWVsMzVpZWR4OXV2d3VkdDdtdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WaExa2YxMRnyoLuITy/giphy.gif'
+
+# Призы и шансы выпадения
 prizes = [
     ('10 звезд', 40),
     ('15 звезд', 25),
     ('25 звезд', 20),
     ('50 звезд', 10),
-    ('75 звезд!', 4)
-    ('100 звезд!', 1)
+    ('70 звезд!', 5)
 ]
 
-GIF_URL = 'https://media.giphy.com/media/WaExa2YxMRnyoLuITy/giphy.gif'
+message_owners = {}         # msg_id -> user_id
+claimed_messages = set()    # msg_id, на которые уже нажали
+user_activity = {}          # user_id -> количество сообщений
 
-message_owners = {}
-claimed_messages = set()
-activity_counter = {}  # user_id -> count
+kazakhstan_tz = pytz.timezone("Asia/Almaty")
 
-# Часовой пояс Казахстана
-kazakhstan_tz = pytz.timezone('Asia/Almaty')
-
-
-# ——— Обработка фотоотзывов с подписью и кнопкой
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
-    if message.chat.id != PHOTO_REVIEW_CHAT_ID:
+    if message.chat.id != PHOTO_REVIEW_GROUP_ID:
         return
     if message.caption:
         msg_id = message.message_id
         user_id = message.from_user.id
+
         message_owners[msg_id] = user_id
 
         markup = types.InlineKeyboardMarkup()
-        button = types.InlineKeyboardButton("🎁 Получить приз", callback_data=f"spin:{msg_id}")
+        button = types.InlineKeyboardButton("\ud83c\udff1 Получить приз", callback_data=f"spin:{msg_id}")
         markup.add(button)
 
         bot.reply_to(
             message,
-            "Спасибо за отзыв! Нажми кнопку, чтобы получить приз 🎁",
+            "Спасибо за отзыв! Нажми кнопку, чтобы получить приз \ud83c\udff1",
             reply_markup=markup
         )
 
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    if message.chat.id == ACTIVITY_GROUP_ID:
+        user_id = message.from_user.id
+        user_activity[user_id] = user_activity.get(user_id, 0) + 1
 
-# ——— Кнопка получения приза за отзыв
 @bot.callback_query_handler(func=lambda call: call.data.startswith('spin:'))
 def handle_spin(call):
     msg_id = int(call.data.split(':')[1])
@@ -74,46 +74,37 @@ def handle_spin(call):
     claimed_messages.add(msg_id)
 
     bot.send_animation(call.message.chat.id, GIF_URL)
-    bot.send_message(call.message.chat.id, f"🎉 @{username}, твой приз: *{prize}*", parse_mode="Markdown")
-    bot.send_message(LOG_CHAT_ID, f"🎁 Приз: *{prize}*\n👤 Пользователь: @{username}", parse_mode="Markdown")
+    bot.send_message(call.message.chat.id, f"\ud83c\udf89 @{username}, твой приз: *{prize}*", parse_mode="Markdown")
+    bot.send_message(LOG_CHAT_ID, f"\ud83c\udff1 Приз: *{prize}*\n\ud83d\udc64 Пользователь: @{username}", parse_mode="Markdown")
 
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
     bot.answer_callback_query(call.id)
 
-
-# ——— Счётчик текстовых сообщений в группе активности
-@bot.message_handler(func=lambda message: message.chat.id == ACTIVITY_CHAT_ID and message.text)
-def track_activity(message):
-    user_id = message.from_user.id
-    activity_counter[user_id] = activity_counter.get(user_id, 0) + 1
-
-
-# ——— Планировщик: раздача приза активному участнику
-def check_and_award_top_user():
+# Функция для выдачи приза самому активному пользователю
+def reward_top_user():
     while True:
         now = datetime.now(kazakhstan_tz)
         weekday = now.weekday()
-        hour = now.hour
 
-        if ((weekday < 5 and 9 <= hour < 20) or (weekday >= 5 and 11 <= hour < 20)):
-            if now.minute == 0 and now.hour % 3 == 0:
-                if activity_counter:
-                    top_user_id = max(activity_counter, key=activity_counter.get)
-                    user_info = bot.get_chat_member(ACTIVITY_CHAT_ID, top_user_id).user
-                    username = user_info.username or user_info.first_name
-                    prize = random.choices([p[0] for p in prizes], weights=[p[1] for p in prizes])[0]
+        # Проверка, попадаем ли мы в нужный диапазон времени
+        if (weekday < 5 and 8 <= now.hour < 20) or (weekday >= 5 and 11 <= now.hour < 20):
+            if user_activity:
+                top_user_id = max(user_activity, key=user_activity.get)
+                chat_member = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user_id)
+                username = chat_member.user.username or chat_member.user.first_name
 
-                    bot.send_animation(ACTIVITY_CHAT_ID, GIF_URL)
-                    bot.send_message(ACTIVITY_CHAT_ID, f"🔥 Самый активный за 3 часа — @{username}!\n🎁 Приз: *{prize}*", parse_mode="Markdown")
-                    bot.send_message(LOG_CHAT_ID, f"🏆 Активный участник:\n👤 @{username}\n🎁 Приз: *{prize}*", parse_mode="Markdown")
+                prize = random.choices([p[0] for p in prizes], weights=[p[1] for p in prizes])[0]
 
-                    activity_counter.clear()
+                bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
+                bot.send_message(ACTIVITY_GROUP_ID, f"\ud83c\udf1f @{username}, ты самый активный участник! Твой приз: *{prize}*", parse_mode="Markdown")
+                bot.send_message(LOG_CHAT_ID, f"\ud83c\udf1f Приз за активность: *{prize}*\n\ud83d\udc64 Пользователь: @{username}", parse_mode="Markdown")
 
-        time.sleep(60)
+            user_activity.clear()
+        
+        # Ждём 3 часа
+        time.sleep(3 * 60 * 60)
 
+# Запуск потока с автонаградой
+threading.Thread(target=reward_top_user, daemon=True).start()
 
-# ——— Запуск фонового потока
-threading.Thread(target=check_and_award_top_user, daemon=True).start()
-
-# ——— Запуск бота
 bot.polling(none_stop=True)
