@@ -7,7 +7,7 @@ import threading
 import time
 import os
 
-TOKEN = os.getenv("BOT_TOKEN") or '7507582678:AAHIKLtx9-d3sqxAQP-RuytCvM8iG7yF0i8'
+TOKEN = os.getenv("BOT_TOKEN") or '7507582678:AAGg1rwyB2B_05n4NjJN1bX2SkdzQSA_1G8'
 PHOTO_REVIEW_GROUP_ID = -1002498200426  # ← замените на ID первой группы
 ACTIVITY_GROUP_ID = -1002296054466      # ← ID второй группы (активность)
 LOG_CHAT_ID = 7823280397                 # ← лог-чат
