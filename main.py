@@ -1,3 +1,4 @@
+import os
 import telebot
 from telebot import types
 import random
@@ -5,18 +6,19 @@ from datetime import datetime, timedelta
 import pytz
 import threading
 import time
-import os
 
-TOKEN = os.getenv("BOT_TOKEN") or '7507582678:AAGg1rwyB2B_05n4NjJN1bX2SkdzQSA_1G8'
-PHOTO_REVIEW_GROUP_ID = -1002498200426  # ← замените на ID первой группы
-ACTIVITY_GROUP_ID = -1002296054466      # ← ID второй группы (активность)
-LOG_CHAT_ID = 7823280397                 # ← лог-чат
+# Получаем токен из переменной окружения
+TOKEN = os.getenv("7507582678:AAGg1rwyB2B_05n4NjJN1bX2SkdzQSA_1G8")
+
+# Группы
+PHOTO_REVIEW_GROUP_ID = -1002498200426  # замените на ID группы для фотоотзывов
+ACTIVITY_GROUP_ID = -1002296054466      # группа для активности
+LOG_CHAT_ID = 7823280397               # чат для логов
 
 bot = telebot.TeleBot(TOKEN)
 
 GIF_URL = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjhxb2xoaDNsbHN3Y2ZwNXNzbHB0dWVsMzVpZWR4OXV2d3VkdDdtdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WaExa2YxMRnyoLuITy/giphy.gif'
 
-# Призы и структура
 prizes = [
     ('10 звезд', 40),
     ('15 звезд', 25),
@@ -25,17 +27,21 @@ prizes = [
     ('70 звезд!', 5)
 ]
 
-message_owners = {}         # кто отправил фото
-claimed_messages = set()    # список обработанных сообщений
-user_activity = {}          # активность пользователей
-last_award_time = None      # время последней награды
+# Хранилища
+message_owners = {}
+claimed_messages = set()
+user_activity = {}
+last_award_time = None
+
+# Временная зона
 kz_tz = pytz.timezone('Asia/Almaty')
 
-# Выбор случайного приза
+
 def choose_random_prize():
     return random.choices([p[0] for p in prizes], weights=[p[1] for p in prizes])[0]
 
-# === 1. Фото с подписью — приз за отзыв ===
+
+# 📷 Обработка фотоотзывов
 @bot.message_handler(content_types=['photo'])
 def handle_photo_review(message):
     if message.chat.id == PHOTO_REVIEW_GROUP_ID and message.caption:
@@ -49,6 +55,8 @@ def handle_photo_review(message):
 
         bot.reply_to(message, "Спасибо за отзыв! Нажми кнопку, чтобы получить приз 🎁", reply_markup=markup)
 
+
+# 🎁 Кнопка получения приза за отзыв
 @bot.callback_query_handler(func=lambda call: call.data.startswith('spin:'))
 def handle_spin(call):
     msg_id = int(call.data.split(':')[1])
@@ -66,20 +74,22 @@ def handle_spin(call):
     prize = choose_random_prize()
     claimed_messages.add(msg_id)
 
-    bot.send_animation(PHOTO_REVIEW_GROUP_ID, GIF_URL)
-    bot.send_message(PHOTO_REVIEW_GROUP_ID, f"🎉 @{username}, твой приз: *{prize}*", parse_mode="Markdown")
-    bot.send_message(LOG_CHAT_ID, f"🎁 Приз за фотоотзыв: *{prize}*\n👤 @{username}", parse_mode="Markdown")
+    bot.send_animation(call.message.chat.id, GIF_URL)
+    bot.send_message(call.message.chat.id, f"🎉 @{username}, твой приз: *{prize}*", parse_mode="Markdown")
+    bot.send_message(LOG_CHAT_ID, f"🎁 Приз: *{prize}*\n👤 Пользователь: @{username}", parse_mode="Markdown")
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
     bot.answer_callback_query(call.id)
 
-# === 2. Подсчёт активности во второй группе ===
+
+# 🧾 Учёт активности
 @bot.message_handler(content_types=['text'])
 def handle_activity(message):
     if message.chat.id == ACTIVITY_GROUP_ID:
         user_id = message.from_user.id
         user_activity[user_id] = user_activity.get(user_id, 0) + 1
 
-# === 3. Каждые 3 часа — награда самому активному ===
+
+# 🕒 Таймер выдачи приза за активность
 def activity_award_loop():
     global last_award_time
     allowed_hours_weekdays = [8, 11, 14, 17, 20]
@@ -95,7 +105,6 @@ def activity_award_loop():
         else:
             allowed_hours = allowed_hours_weekends
 
-        # Если текущий час — в списке разрешённых, и приз ещё не выдавался в этот час
         if current_hour in allowed_hours:
             if last_award_time is None or last_award_time.hour != current_hour or (now - last_award_time).seconds > 3600:
                 if user_activity:
@@ -120,6 +129,9 @@ def activity_award_loop():
                     last_award_time = now
         time.sleep(60)
 
+
+# Запускаем таймер в отдельном потоке
 threading.Thread(target=activity_award_loop, daemon=True).start()
 
+# Запуск бота
 bot.polling(none_stop=True)
