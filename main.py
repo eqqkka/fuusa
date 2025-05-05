@@ -8,7 +8,7 @@ import threading
 import time
 
 # Получаем токен из переменной окружения или пропиши напрямую:
-TOKEN = os.getenv("BOT_TOKEN") or "7507582678:AAFmGcxSq1UphErYGJWc0OsbfSZPic9329s"
+TOKEN = os.getenv("BOT_TOKEN") or "7507582678:AAFoG380Rso0qT14nJnWD6LgQH3wfEuTeTA"
 
 # Группы
 PHOTO_REVIEW_GROUP_ID = -1002498200426  # замените на ID группы для фотоотзывов
