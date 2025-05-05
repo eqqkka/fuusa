@@ -12,7 +12,7 @@ TOKEN = '123456789:ABCDEF_7507582678:AAFz5U6o2FBPRsGEugNTB3tY76f0HfNpswU'
 # Группы
 PHOTO_REVIEW_GROUP_ID = -1002498200426  # замените на ID группы для фотоотзывов
 ACTIVITY_GROUP_ID = -1002296054466      # группа для активности
-LOG_CHAT_ID = 7823280397               # чат для логов
+LOG_CHAT_ID = 7823280397              # чат для логов
 
 bot = telebot.TeleBot(TOKEN)
 
