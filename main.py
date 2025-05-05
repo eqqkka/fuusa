@@ -10,7 +10,7 @@ import time
 # Получаем токен из переменной окружения
 TOKEN = '7507582678:AAFWcQB829HxfV2p-ypkXt8aLkc8AtTgQxc'
 # Группы
-PHOTO_REVIEW_GROUP_ID = -1002498200426  # замените на ID группы для фотоотзывов
+PHOTO_REVIEW_GROUP_ID = -1002296054466  # замените на ID группы для фотоотзывов
 ACTIVITY_GROUP_ID = -1002296054466      # группа для активности
 LOG_CHAT_ID = 7823280397              # чат для логов
 
