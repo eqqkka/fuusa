@@ -82,22 +82,39 @@ def handle_activity(message):
 # === 3. Каждые 3 часа — награда самому активному ===
 def activity_award_loop():
     global last_award_time
+    allowed_hours_weekdays = [8, 11, 14, 17, 20]
+    allowed_hours_weekends = [11, 14, 17, 20]
+
     while True:
         now = datetime.now(kz_tz)
-        weekday = now.weekday()
-        hour = now.hour
+        weekday = now.weekday()  # 0 = Monday, 6 = Sunday
+        current_hour = now.hour
 
-        if (weekday < 5 and 8 <= hour < 20) or (weekday >= 5 and 11 <= hour < 20):
-            if last_award_time is None or now - last_award_time >= timedelta(hours=3):
+        if weekday < 5:
+            allowed_hours = allowed_hours_weekdays
+        else:
+            allowed_hours = allowed_hours_weekends
+
+        # Если текущий час — в списке разрешённых, и приз ещё не выдавался в этот час
+        if current_hour in allowed_hours:
+            if last_award_time is None or last_award_time.hour != current_hour or (now - last_award_time).seconds > 3600:
                 if user_activity:
-                    top_user_id = max(user_activity.items(), key=lambda x: x[1])[0]
-                    user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user_id).user
+                    top_user = max(user_activity.items(), key=lambda x: x[1])[0]
+                    user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
                     username = user_info.username or user_info.first_name
 
                     prize = choose_random_prize()
                     bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
-                    bot.send_message(ACTIVITY_GROUP_ID, f"🏆 @{username}, ты самый активный за последние 3 часа! Твой приз: *{prize}*", parse_mode="Markdown")
-                    bot.send_message(LOG_CHAT_ID, f"🏆 Приз за активность: *{prize}*\n👤 @{username}", parse_mode="Markdown")
+                    bot.send_message(
+                        ACTIVITY_GROUP_ID,
+                        f"🎊 @{username}, ты самый активный за последние 3 часа! Твой приз: *{prize}*",
+                        parse_mode="Markdown"
+                    )
+                    bot.send_message(
+                        LOG_CHAT_ID,
+                        f"🏆 Приз за активность: *{prize}*\n👤 @{username}",
+                        parse_mode="Markdown"
+                    )
 
                     user_activity.clear()
                     last_award_time = now
