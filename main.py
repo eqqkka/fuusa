@@ -88,8 +88,10 @@ def handle_activity(message):
 
 def activity_award_loop():
     global last_award_time
-    allowed_hours_weekdays = [8, 11, 14, 17, 20]
-    allowed_hours_weekends = [11, 14, 17, 20]
+
+    # Часы выдачи призов (по Алматы)
+    award_hours_weekdays = [8, 11, 14, 17, 20]
+    award_hours_weekends = [11, 14, 17, 20]
 
     while True:
         now = datetime.now(kz_tz)
@@ -97,34 +99,43 @@ def activity_award_loop():
         current_hour = now.hour
         current_minute = now.minute
 
-        if weekday < 5:
-            allowed_hours = allowed_hours_weekdays
-        else:
-            allowed_hours = allowed_hours_weekends
+        # Выбираем подходящие часы для текущего дня
+        allowed_hours = award_hours_weekdays if weekday < 5 else award_hours_weekends
 
-        if current_hour in allowed_hours and current_minute == 0:
-            if last_award_time is None or (now - last_award_time).total_seconds() >= 3600:
+        # Если сейчас нужный час и не выдавался приз в этом часу
+        if current_hour in allowed_hours:
+            if last_award_time is None or last_award_time.hour != current_hour or (now - last_award_time).seconds > 3600:
                 if user_activity:
-                    top_user = max(user_activity.items(), key=lambda x: x[1])[0]
-                    user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
-                    username = user_info.username or user_info.first_name
+                    try:
+                        # Определяем самого активного
+                        top_user = max(user_activity.items(), key=lambda x: x[1])[0]
+                        user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
+                        username = user_info.username or user_info.first_name
 
-                    prize = choose_random_prize()
-                    bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
-                    bot.send_message(
-                        ACTIVITY_GROUP_ID,
-                        f"\ud83c\udf8a @{username}, ты самый активный за последние 3 часа! Твой приз: *{prize}*",
-                        parse_mode="Markdown"
-                    )
-                    bot.send_message(
-                        LOG_CHAT_ID,
-                        f"\ud83c\udfc6 Приз за активность: *{prize}*\n\ud83d\udc64 @{username}",
-                        parse_mode="Markdown"
-                    )
+                        # Выдаём приз
+                        prize = choose_random_prize()
+                        bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
+                        bot.send_message(
+                            ACTIVITY_GROUP_ID,
+                            f"🎊 @{username}, ты самый активный за последние 3 часа! Твой приз: *{prize}*",
+                            parse_mode="Markdown"
+                        )
+                        bot.send_message(
+                            LOG_CHAT_ID,
+                            f"🏆 Приз за активность: *{prize}*\n👤 @{username}",
+                            parse_mode="Markdown"
+                        )
 
-                    user_activity.clear()
+                        user_activity.clear()
+                        last_award_time = now
+
+                    except Exception as e:
+                        bot.send_message(LOG_CHAT_ID, f"Ошибка при выдаче приза за активность:\n{e}")
+                else:
+                    # Если нет сообщений — просто лог
                     last_award_time = now
-        time.sleep(30)
+                    bot.send_message(LOG_CHAT_ID, f"⏰ {now.strftime('%H:%M')} — активных пользователей не было.")
+        time.sleep(60)
 
 # Запускаем таймер в отдельном потоке
 threading.Thread(target=activity_award_loop, daemon=True).start()
