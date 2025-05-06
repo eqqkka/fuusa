@@ -10,7 +10,7 @@ import time
 # Токен из переменной окружения или впиши напрямую
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
-    TOKEN = '7507582678:AAE2tbMHmXIRvSpLEeax9232Ddf2J5ym3kc'
+    TOKEN = '7507582678:AAGcNyG96v3MaLhFMaO1BfNUAB4Y2lYUQbM'
 
 # ИД групп и лог-чата
 PHOTO_REVIEW_GROUP_ID = -1002498200426   # замени на ID группы для отзывов
