@@ -10,7 +10,7 @@ import time
 # Получаем токен из переменной окружения
 TOKEN = os.getenv("7507582678:AAFyHxxz8ymeQB9RmiE17gBGMigWuT1c4VY")
 if not TOKEN:
-    raise Exception("BOT_TOKEN")
+    raise Exception("7507582678:AAFyHxxz8ymeQB9RmiE17gBGMigWuT1c4VY")
 
 # Группы
 PHOTO_REVIEW_GROUP_ID = -1002498200426  # замените на ID группы для фотоотзывов
