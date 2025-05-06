@@ -93,8 +93,8 @@ def handle_activity(message):
 def activity_award_loop():
     global last_award_time
 
-    award_hours_weekdays = [11, 14, 17, 20]
-    award_hours_weekends = [14, 17, 20]
+    award_hours_weekdays = [11, 14, 17, 20, 22]
+    award_hours_weekends = [14, 17, 20, 22]
 
     while True:
         now = datetime.now(kz_tz)
