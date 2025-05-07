@@ -91,24 +91,15 @@ def handle_activity(message):
 # 🕒 Таймер выдачи приза за активность
 def activity_award_loop():
     global last_award_time
-    allowed_hours_weekdays = [ 11, 14, 17, 20, 23]
-    allowed_hours_weekends = [11, 14, 17, 20, 23]
+    award_hours = [11, 14, 17, 20]
 
     while True:
         now = datetime.now(kz_tz)
-        weekday = now.weekday()  # 0 = Monday, 6 = Sunday
         current_hour = now.hour
 
-        if weekday < 5:
-            allowed_hours = allowed_hours_weekdays
-        else:
-            allowed_hours = allowed_hours_weekends
-
-        print(f"[{now.strftime('%Y-%m-%d %H:%M:%S')}] Проверка времени. Час: {current_hour}, Допустимые: {allowed_hours}")
-        print(f"📊 user_activity: {user_activity}")
-
-        if current_hour in allowed_hours:
-            if last_award_time is None or last_award_time.hour != current_hour or (now - last_award_time).seconds > 3600:
+        if current_hour in award_hours:
+            # Проверка: не выдавали ли уже приз в этом временном слоте
+            if not last_award_time or (now - last_award_time).total_seconds() >= 3600:
                 if user_activity:
                     top_user = max(user_activity.items(), key=lambda x: x[1])[0]
                     user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
@@ -131,6 +122,10 @@ def activity_award_loop():
                     last_award_time = now
                 else:
                     print("🚫 Нет активности для награждения.")
+        else:
+            # Сброс last_award_time если текущее время не в диапазоне
+            last_award_time = None
+
         time.sleep(60)
 
 # Запускаем таймер в отдельном потоке
