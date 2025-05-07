@@ -7,15 +7,15 @@ import pytz
 import threading
 import time
 
-# Получаем токен из переменной окружения
-TOKEN = "7507582678:AAGDTnczonFfazU9R4XVwWrgH_Op3oiBoQI"
+# Токен
+TOKEN = "7507582678:AAGDTnczonFfazU9R4XVwWrgH_Op3oiBoQI"  # замените на свой токен
 if not TOKEN:
     raise Exception("BOT_TOKEN")
 
 # Группы
-PHOTO_REVIEW_GROUP_ID = -1002498200426  # замените на ID группы для фотоотзывов
+PHOTO_REVIEW_GROUP_ID = -1002498200426  # группа для фотоотзывов
 ACTIVITY_GROUP_ID = -1002296054466      # группа для активности
-LOG_CHAT_ID = 7823280397                # чат для логов
+LOG_CHAT_ID = 7823280397                # лог-чат
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -29,13 +29,12 @@ prizes = [
     ('70 звезд!', 5)
 ]
 
-# Хранилища
 message_owners = {}
 claimed_messages = set()
 user_activity = {}
 last_award_time = None
 
-# Временная зона
+# Алматы
 kz_tz = pytz.timezone('Asia/Almaty')
 
 def choose_random_prize():
@@ -55,7 +54,7 @@ def handle_photo_review(message):
 
         bot.reply_to(message, "Спасибо за отзыв! Нажми кнопку, чтобы получить приз 🎁", reply_markup=markup)
 
-# 🎁 Кнопка получения приза за отзыв
+# 🎁 Получение приза за отзыв
 @bot.callback_query_handler(func=lambda call: call.data.startswith('spin:'))
 def handle_spin(call):
     msg_id = int(call.data.split(':')[1])
@@ -79,56 +78,51 @@ def handle_spin(call):
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
     bot.answer_callback_query(call.id)
 
-# 🧾 Учёт активности
+# 📈 Учёт активности
 @bot.message_handler(content_types=['text'])
 def handle_activity(message):
     if message.chat.id == ACTIVITY_GROUP_ID:
         user_id = message.from_user.id
-        username = message.from_user.username or message.from_user.first_name
         user_activity[user_id] = user_activity.get(user_id, 0) + 1
-        print(f"👣 Активность: {username} ({user_id}) → {user_activity[user_id]}")
 
-# 🕒 Таймер выдачи приза за активность
+# 🕒 Цикл для автоматических призов
 def activity_award_loop():
     global last_award_time
-    award_hours = [11, 14, 17, 20]
+    award_hours = [11, 14, 17, 20, 22]
 
     while True:
-        now = datetime.now(kz_tz)
+        now = datetime.now(kz_tz).replace(minute=0, second=0, microsecond=0)
         current_hour = now.hour
 
         if current_hour in award_hours:
-            # Проверка: не выдавали ли уже приз в этом временном слоте
-            if not last_award_time or (now - last_award_time).total_seconds() >= 3600:
+            if last_award_time != now:
                 if user_activity:
-                    top_user = max(user_activity.items(), key=lambda x: x[1])[0]
-                    user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
-                    username = user_info.username or user_info.first_name
+                    try:
+                        top_user = max(user_activity.items(), key=lambda x: x[1])[0]
+                        user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
+                        username = user_info.username or user_info.first_name
 
-                    prize = choose_random_prize()
-                    bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
-                    bot.send_message(
-                        ACTIVITY_GROUP_ID,
-                        f"🎊 @{username}, ты самый активный за последние 3 часа! Твой приз: *{prize}*",
-                        parse_mode="Markdown"
-                    )
-                    bot.send_message(
-                        LOG_CHAT_ID,
-                        f"🏆 Приз за активность: *{prize}*\n👤 @{username}",
-                        parse_mode="Markdown"
-                    )
-
-                    user_activity.clear()
-                    last_award_time = now
+                        prize = choose_random_prize()
+                        bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
+                        bot.send_message(
+                            ACTIVITY_GROUP_ID,
+                            f"🎊 @{username}, ты самый активный за последние 3 часа! Твой приз: *{prize}*",
+                            parse_mode="Markdown"
+                        )
+                        bot.send_message(
+                            LOG_CHAT_ID,
+                            f"🏆 Приз за активность: *{prize}*\n👤 @{username}",
+                            parse_mode="Markdown"
+                        )
+                        user_activity.clear()
+                        last_award_time = now
+                    except Exception as e:
+                        print(f"⚠️ Ошибка при награждении: {e}")
                 else:
                     print("🚫 Нет активности для награждения.")
-        else:
-            # Сброс last_award_time если текущее время не в диапазоне
-            last_award_time = None
-
         time.sleep(60)
 
-# Запускаем таймер в отдельном потоке
+# Запуск фона
 threading.Thread(target=activity_award_loop, daemon=True).start()
 
 # Запуск бота
