@@ -8,7 +8,7 @@ import threading
 import time
 
 # Токен
-TOKEN = "7507582678:AAGDTnczonFfazU9R4XVwWrgH_Op3oiBoQI"  # замените на свой токен
+TOKEN = "7507582678:AAG1l6Wj0y_dS-dr_7ijePs7tMVBGccDBQk"  # замените на свой токен
 if not TOKEN:
     raise Exception("BOT_TOKEN")
 
