@@ -8,7 +8,7 @@ import threading
 import time
 
 # Получаем токен из переменной окружения
-TOKEN = "7507582678:AAFyHxxz8ymeQB9RmiE17gBGMigWuT1c4VY"
+TOKEN = "7507582678:AAGDTnczonFfazU9R4XVwWrgH_Op3oiBoQI"
 if not TOKEN:
     raise Exception("BOT_TOKEN")
 
