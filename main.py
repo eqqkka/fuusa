@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Конфигурация
-TOKEN = "7507582678:AAErrqORc3r94p4Gg-HMcbshj84vLpWJwmM"
+TOKEN = "7507582678:AAFZA0nyNx-m31jEf8N3kqM4uLuLgKEohKk"
 PHOTO_REVIEW_GROUP_ID = -1002498200426
 ACTIVITY_GROUP_ID = -1002296054466
 LOG_CHAT_ID = 7823280397
