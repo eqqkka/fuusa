@@ -120,15 +120,27 @@ def handle_activity(message):
         logger.error(f"Ошибка учета активности: {str(e)}")
 
 # Система статусов активности
-@bot.message_handler(commands=['status'], chat_id=ACTIVITY_GROUP_ID)
+@bot.message_handler(commands=['status'], chat_types=['supergroup', 'group'], chat_id=ACTIVITY_GROUP_ID)
 def send_activity_status(message):
     try:
-        if message.from_user.id in status_cooldown:
-            bot.reply_to(message, "⏳ Обновлять статус можно раз в 3 минуты!")
-            return
-            
-        status_cooldown.append(message.from_user.id)
+        logger.info(f"Запрос статуса в чате {message.chat.id}")
         
+        # Проверка что запрос в нужном чате
+        if message.chat.id != ACTIVITY_GROUP_ID:
+            logger.warning(f"Попытка запроса статуса в чужом чате: {message.chat.id}")
+            return
+
+        # Проверка прав администратора
+        try:
+            member = bot.get_chat_member(message.chat.id, message.from_user.id)
+            if member.status not in ['administrator', 'creator']:
+                bot.reply_to(message, "❌ Команда доступна только администраторам!")
+                return
+        except Exception as e:
+            logger.error(f"Ошибка проверки прав: {str(e)}")
+            return
+
+        # Формирование и отправка статуса
         status_info = (
             "📊 *Статус активности* 📊\n\n"
             f"🏆 Текущий лидер: {get_top_user()}\n"
@@ -146,10 +158,11 @@ def send_activity_status(message):
             parse_mode="Markdown",
             reply_markup=markup
         )
-        
+        logger.info(f"Статус успешно отправлен в чат {ACTIVITY_GROUP_ID}")
+
     except Exception as e:
-        logger.error(f"Ошибка отправки статуса: {str(e)}")
-        bot.send_message(LOG_CHAT_ID, f"🚨 Ошибка статуса активности: {str(e)}")
+        logger.error(f"Критическая ошибка в статусе: {str(e)}")
+        bot.send_message(LOG_CHAT_ID, f"🚨 Ошибка отправки статуса: {str(e)}")
 
 @bot.callback_query_handler(func=lambda call: call.data == "refresh_status")
 def refresh_status(call):
