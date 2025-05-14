@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Конфигурация
-TOKEN = "7507582678:AAFRmqHBR4rOICgDlnKQyPnQbBb5n7AkJpw"
+TOKEN = "7507582678:AAFlcPJe7dfQWoSBpYsmeWUNfgROaY7TN5M"
 PHOTO_REVIEW_GROUP_ID = -1002498200426
 ACTIVITY_GROUP_ID = -1002296054466
 LOG_CHAT_ID = 7823280397
@@ -121,24 +121,20 @@ def handle_activity(message):
 
 # Система статусов активности
 @bot.message_handler(commands=['status'], chat_types=['supergroup', 'group'], chat_id=ACTIVITY_GROUP_ID)
-def send_activity_status(message):
+def send_activity_status(message=None):
     try:
-        logger.info(f"Запрос статуса в чате {message.chat.id}")
+        logger.info(f"Запрос статуса в чате {ACTIVITY_GROUP_ID}")
         
-        # Проверка что запрос в нужном чате
-        if message.chat.id != ACTIVITY_GROUP_ID:
-            logger.warning(f"Попытка запроса статуса в чужом чате: {message.chat.id}")
-            return
-
-        # Проверка прав администратора
-        try:
-            member = bot.get_chat_member(message.chat.id, message.from_user.id)
-            if member.status not in ['administrator', 'creator']:
-                bot.reply_to(message, "❌ Команда доступна только администраторам!")
+        # Проверка прав администратора, если вызов от пользователя
+        if message:
+            try:
+                member = bot.get_chat_member(message.chat.id, message.from_user.id)
+                if member.status not in ['administrator', 'creator']:
+                    bot.reply_to(message, "❌ Команда доступна только администраторам!")
+                    return
+            except Exception as e:
+                logger.error(f"Ошибка проверки прав: {str(e)}")
                 return
-        except Exception as e:
-            logger.error(f"Ошибка проверки прав: {str(e)}")
-            return
 
         # Формирование и отправка статуса
         status_info = (
@@ -259,10 +255,10 @@ def activity_award_loop():
 thread = threading.Thread(target=activity_award_loop, daemon=True)
 thread.start()
 
+# Запуск бота
 if __name__ == '__main__':
     logger.info("Запуск бота...")
     try:
-        bot.infinity_polling()
+        bot.infinity_polling(timeout=60, long_polling_timeout=30)
     except Exception as e:
-        logger.critical(f"Критическая ошибка: {str(e)}")
-        bot.send_message(LOG_CHAT_ID, f"🚨 Бот упал с ошибкой: {str(e)}")
+        logger.error(f"Ошибка при запуске бота: {str(e)}")
