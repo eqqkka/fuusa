@@ -16,7 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Конфигурация
-TOKEN = "7507582678:AAG0DRNxsPNLqyfCXJ4MQ9EgKpEajB6S9C8"
+TOKEN = "7507582678:AAErrqORc3r94p4Gg-HMcbshj84vLpWJwmM"
 PHOTO_REVIEW_GROUP_ID = -1002498200426  # Проверьте ID группы
 ACTIVITY_GROUP_ID = -1002296054466      # Проверьте ID группы
 LOG_CHAT_ID = 7823280397
@@ -199,3 +199,5 @@ if __name__ == '__main__':
     except Exception as e:
         logger.critical(f"Критическая ошибка: {str(e)}")
         bot.send_message(LOG_CHAT_ID, f"🚨 Бот упал с ошибкой: {str(e)}")
+
+bot.polling(non_stop=True)
