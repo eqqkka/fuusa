@@ -136,43 +136,6 @@ def send_activity_status(message=None):
                 logger.error(f"Ошибка проверки прав: {str(e)}")
                 return
 
-        # Формирование и отправка статуса
-        status_info = (
-            "📊 *Статус активности* 📊\n\n"
-            f"🏆 Текущий лидер: {get_top_user()}\n"
-            f"💬 Сообщений за период: {get_total_messages()}\n"
-            f"🎁 Выдано призов сегодня: {len(claimed_messages)}\n"
-            f"⏳ Следующее награждение: {next_award_time()}"
-        )
-        
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("🔄 Обновить", callback_data="refresh_status"))
-        
-        bot.send_message(
-            chat_id=ACTIVITY_GROUP_ID,
-            text=status_info,
-            parse_mode="Markdown",
-            reply_markup=markup
-        )
-        logger.info(f"Статус успешно отправлен в чат {ACTIVITY_GROUP_ID}")
-
-    except Exception as e:
-        logger.error(f"Критическая ошибка в статусе: {str(e)}")
-        bot.send_message(LOG_CHAT_ID, f"🚨 Ошибка отправки статуса: {str(e)}")
-
-@bot.callback_query_handler(func=lambda call: call.data == "refresh_status")
-def refresh_status(call):
-    try:
-        if call.from_user.id in status_cooldown:
-            bot.answer_callback_query(call.id, "⏳ Подождите 3 минуты перед обновлением!")
-            return
-            
-        status_cooldown.append(call.from_user.id)
-        send_activity_status()
-        bot.answer_callback_query(call.id)
-    except Exception as e:
-        logger.error(f"Ошибка обновления статуса: {str(e)}")
-
 # Вспомогательные функции
 def get_top_user():
     with user_activity_lock:
