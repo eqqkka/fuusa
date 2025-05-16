@@ -1,7 +1,6 @@
 import os
 import telebot
 from telebot import types
-from telebot.util import escape_markdown
 import random
 from datetime import datetime, timedelta
 import pytz
@@ -9,7 +8,7 @@ import threading
 import time
 import logging
 
-# Настройка логирования
+# Логирование
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -26,6 +25,7 @@ LOG_CHAT_ID = 7823280397
 bot = telebot.TeleBot(TOKEN, parse_mode="MarkdownV2")
 gif_url = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjhxb2xhaDNsbHN3Y2ZwNXNzbHB0dWVsMzVpZWR4OXV2d3VkdDdtdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WaExa2YxMRnyoLuITy/giphy.gif'
 
+# Призы и вес
 prizes = [
     ('10 звезд', 40),
     ('15 звезд', 25),
@@ -34,7 +34,12 @@ prizes = [
     ('70 звезд!', 5)
 ]
 
-# Хранилища данных
+# Экранирование MarkdownV2
+def escape_markdown_v2(text: str) -> str:
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return ''.join(f'\\{c}' if c in escape_chars else c for c in text)
+
+# Хранилища
 message_owners = {}
 claimed_messages = set()
 user_activity = {}
@@ -45,7 +50,7 @@ kz_tz = pytz.timezone('Asia/Almaty')
 def choose_random_prize():
     return random.choices([p[0] for p in prizes], weights=[p[1] for p in prizes])[0]
 
-# Обработчик фотоотзывов
+# Обработка фотоотзывов
 @bot.message_handler(content_types=['photo'], chat_id=PHOTO_REVIEW_GROUP_ID)
 def handle_photo_review(message):
     try:
@@ -65,9 +70,9 @@ def handle_photo_review(message):
 
     except Exception as e:
         logger.error(f"Ошибка обработки фото: {str(e)}")
-        bot.send_message(LOG_CHAT_ID, f"🚨 Ошибка обработки фотоотзыва: {str(e)}")
+        bot.send_message(LOG_CHAT_ID, f"🚨 Ошибка фото: {str(e)}")
 
-# Обработчик кнопки
+# Кнопка призов
 @bot.callback_query_handler(func=lambda call: call.data.startswith('spin:'))
 def handle_spin(call):
     try:
@@ -76,39 +81,36 @@ def handle_spin(call):
         username = call.from_user.username or call.from_user.first_name
 
         if msg_id in claimed_messages:
-            bot.answer_callback_query(call.id, "⚠️ Приз уже был получен за этот отзыв!")
+            bot.answer_callback_query(call.id, "⚠️ Приз уже был получен!")
             return
 
         if message_owners.get(msg_id) != user_id:
-            bot.answer_callback_query(call.id, "❌ Только автор отзыва может получить приз!", show_alert=True)
+            bot.answer_callback_query(call.id, "❌ Только автор может получить приз!", show_alert=True)
             return
 
         prize = choose_random_prize()
         claimed_messages.add(msg_id)
 
-        try:
-            bot.edit_message_reply_markup(
-                chat_id=call.message.chat.id,
-                message_id=call.message.message_id,
-                reply_markup=None
-            )
-        except Exception as e:
-            logger.error(f"Ошибка при удалении кнопки: {str(e)}")
+        bot.edit_message_reply_markup(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=None
+        )
+
+        username_md = escape_markdown_v2(username)
+        prize_md = escape_markdown_v2(prize)
 
         bot.send_animation(call.message.chat.id, gif_url)
-        username_md = escape_markdown(username, version=2)
-        prize_md = escape_markdown(prize, version=2)
-
         bot.send_message(call.message.chat.id, f"🎉 @{username_md}, твой приз: *{prize_md}*")
         bot.send_message(LOG_CHAT_ID, f"🎁 Приз: *{prize_md}*\n👤 Пользователь: @{username_md}")
 
         bot.answer_callback_query(call.id)
 
     except Exception as e:
-        logger.error(f"Ошибка в callback: {str(e)}")
-        bot.answer_callback_query(call.id, "⚠️ Произошла ошибка при обработке запроса!", show_alert=True)
+        logger.error(f"Ошибка callback: {str(e)}")
+        bot.answer_callback_query(call.id, "⚠️ Ошибка при обработке!", show_alert=True)
 
-# Обработчик активности
+# Учёт активности
 @bot.message_handler(content_types=['text'], chat_id=ACTIVITY_GROUP_ID)
 def handle_activity(message):
     try:
@@ -118,10 +120,11 @@ def handle_activity(message):
         user_id = message.from_user.id
         with user_activity_lock:
             user_activity[user_id] = user_activity.get(user_id, 0) + 1
-    except Exception as e:
-        logger.error(f"Ошибка учета активности: {str(e)}")
 
-# Система наград за активность
+    except Exception as e:
+        logger.error(f"Ошибка активности: {str(e)}")
+
+# Цикл награждения
 def activity_award_loop():
     global last_award_hour
     allowed_hours = [11, 14, 17, 20]
@@ -145,20 +148,19 @@ def activity_award_loop():
                         username = user_info.username or user_info.first_name
                         prize = choose_random_prize()
 
-                        username_md = escape_markdown(username, version=2)
-                        prize_md = escape_markdown(prize, version=2)
-                        msg_count_md = escape_markdown(str(msg_count), version=2)
+                        username_md = escape_markdown_v2(username)
+                        prize_md = escape_markdown_v2(prize)
 
                         bot.send_animation(ACTIVITY_GROUP_ID, gif_url)
                         bot.send_message(
                             ACTIVITY_GROUP_ID,
-                            f"🎊 @{username_md}, ты самый активный за последние 3 часа\\!\n"
-                            f"💬 Сообщений: *{msg_count_md}*\n"
+                            f"🎊 @{username_md}, ты самый активный за последние 3 часа!\n"
+                            f"💬 Сообщений: *{msg_count}*\n"
                             f"🎁 Приз: *{prize_md}*"
                         )
                         bot.send_message(
                             LOG_CHAT_ID,
-                            f"🏆 Приз за активность: *{prize_md}*\n👤 @{username_md}\n💬 Сообщений: *{msg_count_md}*"
+                            f"🏆 Приз за активность: *{prize_md}*\n👤 @{username_md}\n💬 Сообщений: *{msg_count}*"
                         )
 
                         with user_activity_lock:
@@ -166,25 +168,23 @@ def activity_award_loop():
                         last_award_hour = current_hour
 
                     except Exception as e:
-                        logger.error(f"Ошибка выдачи приза за активность: {str(e)}")
+                        logger.error(f"Ошибка награды: {str(e)}")
 
             time.sleep(60)
 
         except Exception as e:
-            logger.error(f"Критическая ошибка в цикле наград: {str(e)}")
+            logger.error(f"Критическая ошибка наградного цикла: {str(e)}")
             time.sleep(300)
 
-# Запуск фонового потока
+# Запуск потока
 thread = threading.Thread(target=activity_award_loop, daemon=True)
 thread.start()
 
+# Запуск бота
 if __name__ == '__main__':
-    logger.info("Запуск бота...")
+    logger.info("✅ Бот запущен")
     try:
         bot.infinity_polling()
     except Exception as e:
-        logger.critical(f"Критическая ошибка: {str(e)}")
-        try:
-            bot.send_message(LOG_CHAT_ID, f"🚨 Бот упал с ошибкой: {str(e)}")
-        except:
-            pass
+        logger.critical(f"❌ Критическая ошибка: {str(e)}")
+        bot.send_message(LOG_CHAT_ID, f"🚨 Бот упал с ошибкой: {str(e)}")
