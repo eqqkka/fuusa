@@ -1,6 +1,7 @@
 import os
 import telebot
 from telebot import types
+from telebot.util import escape_markdown
 import random
 from datetime import datetime, timedelta
 import pytz
@@ -16,13 +17,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Конфигурация
-TOKEN = "7507582678:AAGdXMwllbh0OcKGOmUDi_0Rty4FDGXVk_4"
+TOKEN = "7507582678:AAGc6onDmF5X5kyyZmOyjPXb7ob9lrBkoCQ"
 PHOTO_REVIEW_GROUP_ID = -1002498200426
 ACTIVITY_GROUP_ID = -1002296054466
 LOG_CHAT_ID = 7823280397
 
 # Инициализация бота
-bot = telebot.TeleBot(TOKEN, parse_mode="MARKDOWN")
+bot = telebot.TeleBot(TOKEN, parse_mode="MarkdownV2")
 gif_url = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjhxb2xhaDNsbHN3Y2ZwNXNzbHB0dWVsMzVpZWR4OXV2d3VkdDdtdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WaExa2YxMRnyoLuITy/giphy.gif'
 
 prizes = [
@@ -95,8 +96,11 @@ def handle_spin(call):
             logger.error(f"Ошибка при удалении кнопки: {str(e)}")
 
         bot.send_animation(call.message.chat.id, gif_url)
-        bot.send_message(call.message.chat.id, f"🎉 @{username}, твой приз: *{prize}*")
-        bot.send_message(LOG_CHAT_ID, f"🎁 Приз: *{prize}*\n👤 Пользователь: @{username}")
+        username_md = escape_markdown(username, version=2)
+        prize_md = escape_markdown(prize, version=2)
+
+        bot.send_message(call.message.chat.id, f"🎉 @{username_md}, твой приз: *{prize_md}*")
+        bot.send_message(LOG_CHAT_ID, f"🎁 Приз: *{prize_md}*\n👤 Пользователь: @{username_md}")
 
         bot.answer_callback_query(call.id)
 
@@ -110,7 +114,7 @@ def handle_activity(message):
     try:
         if message.from_user.is_bot:
             return
-            
+
         user_id = message.from_user.id
         with user_activity_lock:
             user_activity[user_id] = user_activity.get(user_id, 0) + 1
@@ -130,27 +134,31 @@ def activity_award_loop():
             if current_hour in allowed_hours and current_hour != last_award_hour:
                 top_user = None
                 msg_count = 0
-                
+
                 with user_activity_lock:
                     if user_activity:
                         top_user, msg_count = max(user_activity.items(), key=lambda x: x[1])
-                        
+
                 if top_user is not None:
                     try:
                         user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
                         username = user_info.username or user_info.first_name
                         prize = choose_random_prize()
 
+                        username_md = escape_markdown(username, version=2)
+                        prize_md = escape_markdown(prize, version=2)
+                        msg_count_md = escape_markdown(str(msg_count), version=2)
+
                         bot.send_animation(ACTIVITY_GROUP_ID, gif_url)
                         bot.send_message(
                             ACTIVITY_GROUP_ID,
-                            f"🎊 @{username}, ты самый активный за последние 3 часа!\n"
-                            f"💬 Сообщений: *{msg_count}*\n"
-                            f"🎁 Приз: *{prize}*"
+                            f"🎊 @{username_md}, ты самый активный за последние 3 часа\\!\n"
+                            f"💬 Сообщений: *{msg_count_md}*\n"
+                            f"🎁 Приз: *{prize_md}*"
                         )
                         bot.send_message(
                             LOG_CHAT_ID,
-                            f"🏆 Приз за активность: *{prize}*\n👤 @{username}\n💬 Сообщений: *{msg_count}*"
+                            f"🏆 Приз за активность: *{prize_md}*\n👤 @{username_md}\n💬 Сообщений: *{msg_count_md}*"
                         )
 
                         with user_activity_lock:
@@ -176,4 +184,7 @@ if __name__ == '__main__':
         bot.infinity_polling()
     except Exception as e:
         logger.critical(f"Критическая ошибка: {str(e)}")
-        bot.send_message(LOG_CHAT_ID, f"🚨 Бот упал с ошибкой: {str(e)}")
+        try:
+            bot.send_message(LOG_CHAT_ID, f"🚨 Бот упал с ошибкой: {str(e)}")
+        except:
+            pass
