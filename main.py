@@ -1,6 +1,7 @@
+import telebot
 from telebot import types
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 import threading
 import time
@@ -13,17 +14,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Конфигурация
-TOKEN = "7507582678:AAHYcKE0SoeWL_kR9oW5lMGh_PA8LDqlq28"
-PHOTO_REVIEW_GROUP_ID = -1002498200426  # Проверьте ID группы
-ACTIVITY_GROUP_ID = -1002296054466      # Проверьте ID группы
-LOG_CHAT_ID = 7823280397
+# Конфигурация (ЗАМЕНИТЕ ЭТИ ЗНАЧЕНИЯ!)
+TOKEN = "7507582678:AAEA3rC4g1PyjHpWFBCuhhD0qMenLt_1AuY"
+PHOTO_REVIEW_GROUP_ID = -1002498200426    # ID группы для отзывов
+ACTIVITY_GROUP_ID = -1002296054466        # ID группы активности
+LOG_CHAT_ID = 7823280397                  # Ваш ID для логов
+GIF_URL = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjhxb2xhaDNsbHN3Y2ZwNXNzbHB0dWVsMzVpZWR4OXV2d3VkdDdtdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WaExa2YxMRnyoLuITy/giphy.gif'  # Ссылка на GIF
+MAX_MESSAGES = 666                        # Макс сообщений для активности
 
 # Инициализация бота
 bot = telebot.TeleBot(TOKEN, parse_mode="MARKDOWN")
-gif_url = 'https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjhxb2xhaDNsbHN3Y2ZwNXNzbHB0dWVsMzVpZWR4OXV2d3VkdDdtdCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WaExa2YxMRnyoLuITy/giphy.gif'
 
-prizes = [
+# Настройки призов
+PRIZES = [
     ('10 звезд', 40),
     ('15 звезд', 25),
     ('25 звезд', 20),
@@ -31,7 +34,7 @@ prizes = [
     ('70 звезд!', 5)
 ]
 
-# Хранилища данных
+# Глобальные переменные
 message_owners = {}
 claimed_messages = set()
 user_activity = {}
@@ -39,21 +42,21 @@ last_award_hour = None
 kz_tz = pytz.timezone('Asia/Almaty')
 
 def choose_random_prize():
-    return random.choices([p[0] for p in prizes], weights=[p[1] for p in prizes])[0]
+    return random.choices(
+        [p[0] for p in PRIZES], 
+        weights=[p[1] for p in PRIZES]
+    )[0]
 
-# Обработчик фотоотзывов
 @bot.message_handler(content_types=['photo'])
 def handle_photo_review(message):
     try:
-        logger.info(f"Получено фото от {message.from_user.id} в чате {message.chat.id}")
+        logger.info(f"Новый фотоотзыв от @{message.from_user.username}")
         
         if message.chat.id != PHOTO_REVIEW_GROUP_ID:
-            logger.warning(f"Сообщение не из целевой группы: {message.chat.id}")
             return
 
         if not message.caption or len(message.caption.strip()) < 5:
-            bot.reply_to(message, "❌ Пожалуйста, добавьте текстовое описание к фото (минимум 5 символов).")
-            logger.warning("Отзыв без описания отклонен")
+            bot.reply_to(message, "❌ Добавьте описание к фото (минимум 5 символов)")
             return
 
         msg_id = message.message_id
@@ -64,136 +67,113 @@ def handle_photo_review(message):
         button = types.InlineKeyboardButton("🎁 Получить приз", callback_data=f"spin:{msg_id}")
         markup.add(button)
 
-        bot.reply_to(message, "Спасибо за отзыв! Нажми кнопку, чтобы получить приз 🎁", reply_markup=markup)
-        logger.info(f"Добавлена кнопка для сообщения {msg_id}")
+        bot.reply_to(message, "Спасибо за отзыв! Нажмите кнопку за призом 🎁", reply_markup=markup)
 
     except Exception as e:
         logger.error(f"Ошибка обработки фото: {str(e)}")
-        bot.send_message(LOG_CHAT_ID, f"🚨 Ошибка обработки фотоотзыва: {str(e)}")
+        bot.send_message(LOG_CHAT_ID, f"🚨 Ошибка: {str(e)}")
 
-# Обработчик кнопки
 @bot.callback_query_handler(func=lambda call: call.data.startswith('spin:'))
 def handle_spin(call):
     try:
-        logger.info(f"Обработка callback: {call.data}")
         msg_id = int(call.data.split(':')[1])
         user_id = call.from_user.id
         username = call.from_user.username or call.from_user.first_name
 
         if msg_id in claimed_messages:
-            bot.answer_callback_query(call.id, "⚠️ Приз уже был получен за этот отзыв!")
-            logger.warning(f"Повторный запрос приза для сообщения {msg_id}")
+            bot.answer_callback_query(call.id, "⚠️ Приз уже получен!")
             return
 
         if message_owners.get(msg_id) != user_id:
-            bot.answer_callback_query(call.id, "❌ Только автор отзыва может получить приз!", show_alert=True)
-            logger.warning(f"Попытка чужого доступа к сообщению {msg_id}")
+            bot.answer_callback_query(call.id, "❌ Только автор отзыва!", show_alert=True)
             return
 
         prize = choose_random_prize()
         claimed_messages.add(msg_id)
 
-        # Удаляем кнопку после нажатия
         bot.edit_message_reply_markup(
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=None
         )
 
-        # Отправка приза
-        bot.send_animation(call.message.chat.id, gif_url)
-        bot.send_message(call.message.chat.id, f"🎉 @{username}, твой приз: *{prize}*")
-        bot.send_message(LOG_CHAT_ID, f"🎁 Приз: *{prize}*\n👤 Пользователь: @{username}")
-        logger.info(f"Выдан приз {prize} пользователю {user_id}")
-
-        bot.answer_callback_query(call.id)
+        bot.send_animation(call.message.chat.id, GIF_URL, disable_notification=True)
+        bot.send_message(call.message.chat.id, f"🎉 @{username}, ваш приз: *{prize}*")
+        bot.send_message(LOG_CHAT_ID, f"🎁 Приз: {prize}\n👤 @{username}")
 
     except Exception as e:
-        logger.error(f"Ошибка в callback: {str(e)}")
-        bot.answer_callback_query(call.id, "⚠️ Произошла ошибка при обработке запроса!", show_alert=True)
+        logger.error(f"Ошибка callback: {str(e)}")
+        bot.answer_callback_query(call.id, "⚠️ Ошибка!", show_alert=True)
 
-# Обработчик активности
-@bot.message_handler(content_types=['text'], chat_id=[ACTIVITY_GROUP_ID])
+@bot.message_handler(content_types=['text'], chat_ids=[ACTIVITY_GROUP_ID])
 def handle_activity(message):
     try:
-        if message.chat.id == ACTIVITY_GROUP_ID and not message.from_user.is_bot:
+        if not message.from_user.is_bot:
             user_id = message.from_user.id
-            user_activity[user_id] = user_activity.get(user_id, 0) + 1
-            logger.debug(f"Активность +1 для пользователя {user_id}")
+            user_activity[user_id] = min(
+                user_activity.get(user_id, 0) + 1,
+                MAX_MESSAGES
+            )
     except Exception as e:
         logger.error(f"Ошибка учета активности: {str(e)}")
 
-# Система наград за активность
 def activity_award_loop():
     global last_award_hour
-    allowed_hours = [11, 14, 17, 20]
+    allowed_hours = {11, 14, 17, 20}
 
     while True:
         try:
             now = datetime.now(kz_tz)
             current_hour = now.hour
 
-            if current_hour in allowed_hours and current_hour != last_award_hour:
-                if user_activity:
+            if now.minute % 5 == 0 and current_hour in allowed_hours:
+                if current_hour != last_award_hour and user_activity:
                     top_user = max(user_activity.items(), key=lambda x: x[1])[0]
                     msg_count = user_activity[top_user]
                     
-                    try:
-                        user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
-                        username = user_info.username or user_info.first_name
-                        prize = choose_random_prize()
+                    user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
+                    username = user_info.username or user_info.first_name
+                    prize = choose_random_prize()
 
-                        bot.send_animation(ACTIVITY_GROUP_ID, gif_url)
-                        bot.send_message(
-                            ACTIVITY_GROUP_ID,
-                            f"🎊 @{username}, ты самый активный за последние 3 часа!\n"
-                            f"💬 Сообщений: *{msg_count}*\n"
-                            f"🎁 Приз: *{prize}*"
-                        )
-                        bot.send_message(
-                            LOG_CHAT_ID,
-                            f"🏆 Приз за активность: *{prize}*\n👤 @{username}\n💬 Сообщений: *{msg_count}*"
-                        )
+                    bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL, disable_notification=True)
+                    bot.send_message(
+                        ACTIVITY_GROUP_ID,
+                        f"🎊 @{username}, самый активный!\n💬 Сообщений: {msg_count}\n🎁 Приз: {prize}"
+                    )
+                    user_activity.clear()
+                    last_award_hour = current_hour
 
-                        user_activity.clear()
-                        last_award_hour = current_hour
-                        logger.info(f"Выдан приз за активность {prize} пользователю {top_user}")
-
-                    except Exception as e:
-                        logger.error(f"Ошибка выдачи приза за активность: {str(e)}")
-
-                else:
-                    logger.info("Нет активности для награждения")
-
-            time.sleep(60)
-
-        except Exception as e:
-            logger.error(f"Критическая ошибка в цикле наград: {str(e)}")
             time.sleep(300)
+        except Exception as e:
+            logger.error(f"Ошибка цикла наград: {str(e)}")
+            time.sleep(600)
 
-# Запуск фонового потока
-thread = threading.Thread(target=activity_award_loop, daemon=True)
-thread.start()
-
-# Команда для проверки статуса
-@bot.message_handler(commands=['status'])
-def send_status(message):
+def check_bot_permissions():
     try:
-        status_info = (
-            f"🟢 Бот работает\n"
-            f"📊 Статистика:\n"
-            f"• Обработано отзывов: {len(message_owners)}\n"
-            f"• Выдано призов: {len(claimed_messages)}\n"
-            f"• Активных пользователей: {len(user_activity)}"
-        )
-        bot.reply_to(message, status_info)
+        # Проверка прав в группе для отзывов
+        chat_member = bot.get_chat_member(PHOTO_REVIEW_GROUP_ID, bot.get_me().id)
+        if not chat_member.can_post_messages:
+            raise PermissionError("Нет прав на отправку сообщений в группе отзывов")
+        
+        # Проверка прав в группе активности
+        chat_member = bot.get_chat_member(ACTIVITY_GROUP_ID, bot.get_me().id)
+        if not chat_member.can_send_messages:
+            raise PermissionError("Нет прав на отправку сообщений в группе активности")
+        
+        logger.info("Проверка прав завершена успешно")
     except Exception as e:
-        logger.error(f"Ошибка команды status: {str(e)}")
+        logger.critical(f"Ошибка прав доступа: {str(e)}")
+        raise
 
 if __name__ == '__main__':
-    logger.info("Запуск бота...")
     try:
+        logger.info("Запуск бота...")
+        check_bot_permissions()
+        bot.send_message(LOG_CHAT_ID, "🤖 Бот успешно запущен!")
+        
+        threading.Thread(target=activity_award_loop, daemon=True).start()
         bot.infinity_polling()
+        
     except Exception as e:
         logger.critical(f"Критическая ошибка: {str(e)}")
-        bot.send_message(LOG_CHAT_ID, f"🚨 Бот упал с ошибкой: {str(e)}")
+        bot.send_message(LOG_CHAT_ID, f"🚨 Бот остановлен: {str(e)}")
