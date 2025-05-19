@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import pytz
 import threading
 import time
+import html
 
 # Токен
 TOKEN = "7507582678:AAHTs18vPNgjrOp1YrojkKz6UuOABh-H4Xs"
@@ -102,19 +103,35 @@ def activity_award_loop():
                 username = user_info.username or user_info.first_name
                 prize = choose_random_prize()
 
-                bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
-                bot.send_message(
-                    ACTIVITY_GROUP_ID,
-                    f"🎊 @{username}, ты самый активный за последние 3 часа!\n"
-                    f"💬 Сообщений: *{msg_count}*\n"
-                    f"🎁 Приз: *{prize}*",
-                    parse_mode="Markdown"
-                )
-                bot.send_message(
-                    LOG_CHAT_ID,
-                    f"🏆 Приз за активность: *{prize}*\n👤 @{username}\n💬 Сообщений: *{msg_count}*",
-                    parse_mode="Markdown"
-                )
+                # Экранируем переменные для безопасного HTML
+username_escaped = html.escape(username)
+prize_escaped = html.escape(prize)
+
+# Создаём инлайн-кнопку
+markup = InlineKeyboardMarkup()
+markup.add(InlineKeyboardButton("🎁 Получить приз", callback_data="get_prize"))
+
+# Анимация
+bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
+
+# Сообщение в основной чат
+bot.send_message(
+    ACTIVITY_GROUP_ID,
+    f"🎊 <b>@{username_escaped}</b>, ты самый активный за последние 3 часа!\n"
+    f"💬 Сообщений: <b>{msg_count}</b>\n"
+    f"🎁 Приз: <b>{prize_escaped}</b>",
+    parse_mode="HTML",
+    reply_markup=markup
+)
+
+# Сообщение в лог-чат
+bot.send_message(
+    LOG_CHAT_ID,
+    f"🏆 Приз за активность: <b>{prize_escaped}</b>\n"
+    f"👤 <b>@{username_escaped}</b>\n"
+    f"💬 Сообщений: <b>{msg_count}</b>",
+    parse_mode="HTML"
+)
 
                 user_activity.clear()
                 last_award_hour = current_hour
