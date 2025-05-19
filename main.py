@@ -9,7 +9,7 @@ import time
 import html
 
 # Токен
-TOKEN = "7507582678:AAHTs18vPNgjrOp1YrojkKz6UuOABh-H4Xs"
+TOKEN = "7507582678:AAEQtmzKZELF8gvLnOdDrZ3hMtQ7pe6-LI8"
 if not TOKEN:
     raise Exception("BOT_TOKEN")
 
