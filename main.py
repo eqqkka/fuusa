@@ -2,7 +2,7 @@ import os
 import telebot
 from telebot import types
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 import pytz
 import threading
 import time
@@ -13,7 +13,7 @@ TOKEN = "7507582678:AAHTs18vPNgjrOp1YrojkKz6UuOABh-H4Xs"
 if not TOKEN:
     raise Exception("BOT_TOKEN")
 
-# Группы
+# Группы и лог-чат
 PHOTO_REVIEW_GROUP_ID = -1002498200426
 ACTIVITY_GROUP_ID = -1002296054466
 LOG_CHAT_ID = 7823280397
@@ -73,8 +73,8 @@ def handle_spin(call):
     claimed_messages.add(msg_id)
 
     bot.send_animation(call.message.chat.id, GIF_URL)
-    bot.send_message(call.message.chat.id, f"🎉 @{username}, твой приз: <b>{html.escape(prize)}</b>", parse_mode="HTML")
-    bot.send_message(LOG_CHAT_ID, f"🎁 Приз: <b>{html.escape(prize)}</b>\n👤 Пользователь: <b>@{html.escape(username)}</b>", parse_mode="HTML")
+    bot.send_message(call.message.chat.id, f"🎉 @{username}, твой приз: *{prize}*", parse_mode="Markdown")
+    bot.send_message(LOG_CHAT_ID, f"🎁 Приз: *{prize}*\n👤 Пользователь: @{username}", parse_mode="Markdown")
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
     bot.answer_callback_query(call.id)
 
@@ -84,6 +84,19 @@ def handle_activity(message):
     if message.chat.id == ACTIVITY_GROUP_ID:
         user_id = message.from_user.id
         user_activity[user_id] = user_activity.get(user_id, 0) + 1
+
+# 🎁 Обработка кнопки для призов за активность
+@bot.callback_query_handler(func=lambda call: call.data == "get_prize")
+def handle_get_prize(call):
+    user_id = call.from_user.id
+    username = call.from_user.username or call.from_user.first_name
+
+    # Здесь можно добавить логику, например, чтобы каждый пользователь мог получить приз только один раз за награждение
+    # Но для простоты просто отправим сообщение
+
+    bot.answer_callback_query(call.id, f"🎉 @{username}, поздравляем с призом!")
+    bot.send_message(LOG_CHAT_ID, f"Пользователь @{username} получил приз за активность.")
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
 # 🕒 Таймер выдачи приза за активность
 def activity_award_loop():
@@ -98,10 +111,15 @@ def activity_award_loop():
             if user_activity:
                 top_user = max(user_activity.items(), key=lambda x: x[1])[0]
                 msg_count = user_activity[top_user]
-                user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
-                username = user_info.username or user_info.first_name
+                try:
+                    user_info = bot.get_chat_member(ACTIVITY_GROUP_ID, top_user).user
+                    username = user_info.username or user_info.first_name
+                except Exception:
+                    username = "пользователь"
+
                 prize = choose_random_prize()
 
+                # Экранируем переменные для безопасного HTML
                 username_escaped = html.escape(username)
                 prize_escaped = html.escape(prize)
 
@@ -109,7 +127,6 @@ def activity_award_loop():
                 markup.add(types.InlineKeyboardButton("🎁 Получить приз", callback_data="get_prize"))
 
                 bot.send_animation(ACTIVITY_GROUP_ID, GIF_URL)
-
                 bot.send_message(
                     ACTIVITY_GROUP_ID,
                     f"🎊 <b>@{username_escaped}</b>, ты самый активный за последние 3 часа!\n"
@@ -118,7 +135,6 @@ def activity_award_loop():
                     parse_mode="HTML",
                     reply_markup=markup
                 )
-
                 bot.send_message(
                     LOG_CHAT_ID,
                     f"🏆 Приз за активность: <b>{prize_escaped}</b>\n"
