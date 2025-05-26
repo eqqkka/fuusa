@@ -6,7 +6,7 @@ import random
 import html
 import threading
 
-TOKEN = '8082470933:AAGt2iVZfJ_mQuV0ZYHnJQA_4Kc_cGycG18'
+TOKEN = '8082470933:AAG3n9agITuVZQd5VQLnfyTwPRNFAHGIvGI'
 if not TOKEN:
     raise Exception("TOKEN not provided")
 
