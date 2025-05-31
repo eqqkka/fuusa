@@ -1,3 +1,4 @@
+import schedule
 import telebot
 from telebot import types
 import pytz
@@ -151,6 +152,10 @@ def handle_spin_button(call):
     except Exception as e:
         print(f"Ошибка обработки кнопки: {e}")
 
+# Часовой пояс Алматы
+ALMATY_TZ = pytz.timezone("Asia/Almaty")
+AWARD_HOURS = [10, 13, 16, 19, 22]  # Время по Алмате
+
 @bot.message_handler(func=lambda message: message.chat.id == ACTIVITY_GROUP_ID and not message.from_user.is_bot)
 def track_user_activity(message):
     user_id = message.from_user.id
@@ -187,9 +192,16 @@ def award_most_active_user():
     except Exception as e:
         print(f"[ERROR] Ошибка при награждении активного пользователя: {e}")
 
-    threading.Timer(AWARD_INTERVAL_SECONDS, award_most_active_user).start()
+# Проверка времени каждые 30 секунд
+def schedule_thread():
+    while True:
+        now = datetime.now(ALMATY_TZ)
+        if now.minute == 0 and now.second < 30 and now.hour in AWARD_HOURS:
+            award_most_active_user()
+            time.sleep(60)  # Ждём минуту, чтобы не выполнить награждение повторно
+        time.sleep(30)
 
-award_most_active_user()
+threading.Thread(target=schedule_thread, daemon=True).start()
 
 print("[INFO] Бот запущен.")
 bot.infinity_polling()
